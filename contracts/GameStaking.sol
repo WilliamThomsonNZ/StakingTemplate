@@ -27,7 +27,7 @@ contract ItemStake {
         token = GameToken(_gameToken);
     }
 
-    function stake(uint256[] calldata _tokenIds) external {
+    function stake(uint32[] calldata _tokenIds) external {
         uint256 tokenId;
         for (uint256 i = 0; i < _tokenIds.length; i++) {
             tokenId = _tokenIds[i];
@@ -47,20 +47,17 @@ contract ItemStake {
         }
     }
 
-    function unstake(uint256[] calldata _tokenIds) public {
+    function unstake(uint32[] calldata _tokenIds) public {
         uint256 tokenId;
         uint256 tokensToClaim;
         for (uint256 i = 0; i < _tokenIds.length; i++) {
             tokenId = _tokenIds[i];
-            require(
-                gameItem.ownerOf(tokenId) == msg.sender,
-                "Not owner of token"
-            );
             StakedItem memory item = stakedItems[tokenId];
+            require(item.owner == msg.sender, "Not owner of token");
             //864 for 100 tokens
             tokensToClaim += (block.timestamp - item.timestamp) / 1;
             console.log(tokensToClaim);
-
+            gameItem.safeTransferFrom(address(this), msg.sender, tokenId);
             emit NFTUnstaked(msg.sender, tokenId, item.timestamp);
             delete stakedItems[tokenId];
             stakedTokenAmount--;

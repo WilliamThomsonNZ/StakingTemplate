@@ -15,7 +15,8 @@ export default function Staking() {
   const userState = useAppContext();
   const [usersTokens, setUsersTokens] = useState([]);
   const [tokensToBeStaked, setTokensToBeStaked] = useState([]);
-
+  const [stakedTokens, setStakedTokens] = useState([]);
+  const [tokensToBeUnstaked, setTokensToBeUnstaked] = useState([]);
   async function getOwnersTokens() {
     const tokens = await listTokensOfOwner(
       NFT_CONTRACT_ADDRESS,
@@ -33,13 +34,25 @@ export default function Staking() {
     if (tempArr.includes(token)) {
       const isToken = (entry) => entry == token;
       const index = tempArr.findIndex(isToken);
-      tempArr.splice(index);
-      setTokensToBeStaked(tempArr);
+      tempArr.splice(index, 1);
+    } else {
+      tempArr.push(token);
+    }
+
+    setTokensToBeStaked(tempArr);
+  }
+
+  function updateTokensToBeUnstaked(token) {
+    const tempArr = [...tokensToBeUnstaked];
+    if (tempArr.includes(token)) {
+      const isToken = (entry) => entry == token;
+      const index = tempArr.findIndex(isToken);
+      tempArr.splice(index, 1);
     } else {
       tempArr.push(token);
     }
     console.log(tempArr);
-    setTokensToBeStaked(tempArr);
+    setTokensToBeUnstaked(tempArr);
   }
 
   async function handleStake() {
@@ -56,6 +69,7 @@ export default function Staking() {
       );
       const tx = await contract.stake(tokensToBeStaked);
       const receipt = await tx.wait();
+      setTokensToBeStaked([]);
       console.log(receipt);
     } catch (error) {
       console.error(error);
@@ -76,13 +90,22 @@ export default function Staking() {
     }
   }
 
-  // async function handleUnstake() {
-  //   try{
-  //     const signer = await getProviderOrSigner(true);
-  //     const contract = new Contract(STAKING_CONTRACT_ADDRESS, STAKING_ABI);
-  //     const tx = await contract.unstake()
-  //   }
-  // }
+  async function handleUnstake() {
+    try {
+      const signer = await getProviderOrSigner(true);
+      const contract = new Contract(
+        STAKING_CONTRACT_ADDRESS,
+        STAKING_ABI,
+        signer
+      );
+      const tx = await contract.unstake(tokensToBeUnstaked);
+      await tx.wait();
+      setTokensToBeUnstaked([]);
+      console.log("Unstaked");
+    } catch (error) {
+      console.error(error);
+    }
+  }
 
   async function getUserStakedTokens() {
     try {
@@ -95,6 +118,7 @@ export default function Staking() {
       const userAddress = await signer.getAddress();
       const userStakedTokens = await contract.getStakedTokens(userAddress);
       console.log(userStakedTokens);
+      setStakedTokens(userStakedTokens);
     } catch (error) {
       console.error(error);
     }
@@ -108,7 +132,8 @@ export default function Staking() {
         <button onClick={() => getTokens()}>Get Tokens</button>
         <button onClick={() => handleApproval()}>setApprovalForAll</button>
         <button onClick={() => getUserStakedTokens()}>getStakedTokens</button>
-      </main>
+      </main>{" "}
+      <h3 className={styles.heading}>Tokens not staked</h3>
       <div className={styles.stakeContainer}>
         {[...usersTokens].map((token) => (
           <article className={styles.stakedItemContainer} key={token}>
@@ -119,6 +144,22 @@ export default function Staking() {
                 type="checkbox"
                 id={token}
                 onChange={() => updateTokensToBeStaked(Number(token))}
+              />
+            </label>
+          </article>
+        ))}
+      </div>
+      <h3 className={styles.heading}>Staked tokens</h3>
+      <div className={styles.stakeContainer}>
+        {stakedTokens.map((token) => (
+          <article className={styles.stakedItemContainer} key={token}>
+            <label for={token + 1}>
+              <img src="https://images.unsplash.com/photo-1510759591315-6425cba413fe?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1770&q=80" />
+              <h6>{token + 1}</h6>
+              <input
+                type="checkbox"
+                id={token + 1}
+                onChange={() => updateTokensToBeUnstaked(token + 1)}
               />
             </label>
           </article>
