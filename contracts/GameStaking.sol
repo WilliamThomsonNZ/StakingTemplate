@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.7;
+pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
@@ -20,10 +20,11 @@ contract ItemStake {
     event NFTUnstaked(address owner, uint256 tokenId, uint256 value);
 
     mapping(uint256 => StakedItem) public stakedItems;
+    uint256 stakedTokenAmount;
 
-    constructor() {
-        gameItem = IERC721(0xAc40c9C8dADE7B9CF37aEBb49Ab49485eBD3510d);
-        token = GameToken(0x8431717927C4a3343bCf1626e7B5B1D31E240406);
+    constructor(address _gameToken, address _gameItem) {
+        gameItem = IERC721(_gameItem);
+        token = GameToken(_gameToken);
     }
 
     function stake(uint256[] calldata _tokenIds) external {
@@ -42,6 +43,7 @@ contract ItemStake {
                 owner: msg.sender,
                 timestamp: block.timestamp
             });
+            stakedTokenAmount++;
         }
     }
 
@@ -61,10 +63,26 @@ contract ItemStake {
 
             emit NFTUnstaked(msg.sender, tokenId, item.timestamp);
             delete stakedItems[tokenId];
+            stakedTokenAmount--;
         }
         if (tokensToClaim > 0) {
             token.mint(msg.sender, tokensToClaim);
         }
+    }
+
+    function getStakedTokens(address _account)
+        public
+        view
+        returns (uint32[] memory)
+    {
+        uint32[] memory arr = new uint32[](stakedTokenAmount);
+        for (uint256 i = 0; i < stakedTokenAmount; i++) {
+            StakedItem memory item = stakedItems[i];
+            if (item.owner == _account) {
+                arr[i] = uint32(item.tokenId);
+            }
+        }
+        return arr;
     }
 
     function onERC721Received(
