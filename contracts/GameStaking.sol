@@ -17,10 +17,8 @@ contract ItemStake {
         uint256 lastUpdate;
         uint256 tokenBalance;
     }
-
     event NFTStaked(address owner, uint256 tokenId);
     event NFTUnstaked(address owner, uint256 tokenId);
-
     //mapping(uint256 => s) public stakedItems;
     mapping(address => Staker) public stakers;
     mapping(uint256 => address) public tokenOwners;
@@ -43,13 +41,20 @@ contract ItemStake {
         return 0;
     }
 
-    function claimTokens() external {
+    function getClaimableTokens() external returns (uint256) {
+        Staker storage staker = stakers[msg.sender];
+        calculateRewards(msg.sender);
+        uint256 tokens = staker.tokenBalance;
+        return tokens;
+    }
+
+    function claimTokens() public {
         Staker storage staker = stakers[msg.sender];
         uint256 claimableTokens = calculateRewards(msg.sender);
         if (staker.tokenBalance > 0) {
             staker.tokenBalance = 0;
             staker.lastUpdate = block.timestamp;
-            token.mint(msg.sender, claimableTokens);
+            token.mint(msg.sender, claimableTokens * (10**18));
         }
     }
 
@@ -70,7 +75,6 @@ contract ItemStake {
 
     function _stake(uint256 _tokenId, address _user) internal {
         Staker storage staker = stakers[_user];
-
         require(staker.tokenIndex[_tokenId] == 0, "Token already staked");
         if (staker.stakedTokens.length > 1) {
             calculateRewards(_user);
@@ -78,7 +82,6 @@ contract ItemStake {
         staker.stakedTokens.push(_tokenId);
         staker.tokenIndex[staker.stakedTokens.length - 1];
         staker.lastUpdate = block.timestamp;
-
         gameItem.safeTransferFrom(msg.sender, address(this), _tokenId);
         tokenOwners[_tokenId] = _user;
         emit NFTStaked(_user, _tokenId);
@@ -110,10 +113,12 @@ contract ItemStake {
 
     function unstake(uint256 _tokenId) external {
         require(msg.sender == tokenOwners[_tokenId], "Not token owner");
+        claimTokens();
         _unstake(_tokenId, msg.sender);
     }
 
     function unstakeMultiple(uint256[] calldata _tokenIds) external {
+        claimTokens();
         for (uint256 i = 0; i < _tokenIds.length; i++) {
             if (tokenOwners[_tokenIds[i]] == msg.sender) {
                 _unstake(_tokenIds[i], msg.sender);

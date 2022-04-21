@@ -5,9 +5,11 @@ import {
   NFT_ABI,
   STAKING_CONTRACT_ADDRESS,
   STAKING_ABI,
+  TOKEN_CONTRACT_ADDRESS,
+  TOKEN_ABI,
 } from "../../constants";
 import { useAppContext } from "../../context/state";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Contract } from "ethers";
 import styles from "../../styles/appStyling.module.scss";
 import { getProviderOrSigner } from "../../utils";
@@ -17,6 +19,8 @@ export default function Staking() {
   const [tokensToBeStaked, setTokensToBeStaked] = useState([]);
   const [stakedTokens, setStakedTokens] = useState([]);
   const [tokensToBeUnstaked, setTokensToBeUnstaked] = useState([]);
+  const [claimableTokens, setClaimableTokens] = useState(0);
+  const [userGTBalance, setUserGTBalance] = useState(0);
   async function getOwnersTokens() {
     const tokens = await listTokensOfOwner(
       NFT_CONTRACT_ADDRESS,
@@ -29,6 +33,7 @@ export default function Staking() {
   async function getTokens() {
     getOwnersTokens();
   }
+
   function updateTokensToBeStaked(token) {
     const tempArr = [...tokensToBeStaked];
     if (tempArr.includes(token)) {
@@ -38,7 +43,6 @@ export default function Staking() {
     } else {
       tempArr.push(token);
     }
-
     setTokensToBeStaked(tempArr);
   }
 
@@ -67,10 +71,14 @@ export default function Staking() {
         STAKING_ABI,
         signer
       );
-      const tx = await contract.stake(tokensToBeStaked);
-      const receipt = await tx.wait();
+      let tx;
+      if (tokensToBeStaked.length > 1) {
+        tx = await contract.stakeMultiple(tokensToBeStaked);
+      } else {
+        tx = await contract.stake(...tokensToBeStaked);
+      }
+      await tx.wait();
       setTokensToBeStaked([]);
-      console.log(receipt);
     } catch (error) {
       console.error(error);
     }
@@ -84,7 +92,6 @@ export default function Staking() {
         true
       );
       await tx.wait();
-      console.log("Approved");
     } catch (error) {
       console.error(error);
     }
@@ -98,10 +105,14 @@ export default function Staking() {
         STAKING_ABI,
         signer
       );
-      const tx = await contract.unstake(tokensToBeUnstaked);
+      let tx;
+      if (tokensToBeUnstaked.length > 1) {
+        tx = await contract.unstakeMultiple(tokensToBeUnstaked);
+      } else {
+        tx = await contract.unstake(...tokensToBeUnstaked);
+      }
       await tx.wait();
       setTokensToBeUnstaked([]);
-      console.log("Unstaked");
     } catch (error) {
       console.error(error);
     }
@@ -117,12 +128,56 @@ export default function Staking() {
       );
       const userAddress = await signer.getAddress();
       const userStakedTokens = await contract.getStakedTokens(userAddress);
-      console.log(userStakedTokens);
       setStakedTokens(userStakedTokens);
     } catch (error) {
       console.error(error);
     }
   }
+
+  async function claimTokens() {
+    try {
+      const signer = await getProviderOrSigner(true);
+      const contract = new Contract(
+        STAKING_CONTRACT_ADDRESS,
+        STAKING_ABI,
+        signer
+      );
+      const tx = await contract.claimTokens();
+      await tx.wait();
+      setClaimableTokens(0);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+  async function getClaimableTokens() {
+    try {
+      const signer = await getProviderOrSigner(true);
+      const address = await signer.getAddress(address);
+      const contract = new Contract(
+        STAKING_CONTRACT_ADDRESS,
+        STAKING_ABI,
+        signer
+      );
+      const tokens = await contract.getClaimableTokens();
+      setClaimableTokens(tokens);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+  async function getUserTokenBalance() {
+    try {
+      const signer = await getProviderOrSigner(true);
+      const addr = await signer.getAddress();
+      const contract = new Contract(TOKEN_CONTRACT_ADDRESS, TOKEN_ABI, signer);
+      const bal = await contract.balanceOf(addr);
+      setUserGTBalance(Number(bal) / 10 ** 18);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+  useEffect(() => {
+    getUserTokenBalance();
+  }, []);
   return (
     <div>
       <Header />
@@ -132,7 +187,9 @@ export default function Staking() {
         <button onClick={() => getTokens()}>Get Tokens</button>
         <button onClick={() => handleApproval()}>setApprovalForAll</button>
         <button onClick={() => getUserStakedTokens()}>getStakedTokens</button>
-      </main>{" "}
+        <span>GT balance: {userGTBalance}</span>
+        <button onClick={(e) => claimTokens(e)}>Claim Tokens</button>
+      </main>
       <h3 className={styles.heading}>Tokens not staked</h3>
       <div className={styles.stakeContainer}>
         {[...usersTokens].map((token) => (
@@ -153,13 +210,13 @@ export default function Staking() {
       <div className={styles.stakeContainer}>
         {stakedTokens.map((token) => (
           <article className={styles.stakedItemContainer} key={token}>
-            <label for={token + 1}>
+            <label for={Number(token)}>
               <img src="https://images.unsplash.com/photo-1510759591315-6425cba413fe?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1770&q=80" />
-              <h6>{token + 1}</h6>
+              <h6>{Number(token)}</h6>
               <input
                 type="checkbox"
-                id={token + 1}
-                onChange={() => updateTokensToBeUnstaked(token + 1)}
+                id={Number(token)}
+                onChange={() => updateTokensToBeUnstaked(Number(token))}
               />
             </label>
           </article>

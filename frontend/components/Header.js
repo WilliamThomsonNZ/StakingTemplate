@@ -1,12 +1,13 @@
 import { useAppContext } from "../context/state";
 import { getProviderOrSigner } from "../utils";
 import { readifyAddress } from "../utils";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { STAKING_CONTRACT_ADDRESS, STAKING_ABI } from "../constants";
+import { Contract } from "ethers";
 import Link from "next/link";
 import styles from "../styles/appStyling.module.scss";
-export default function Header({ currentPage }) {
+export default function Header({ currentPage, tokenBalance }) {
   const userState = useAppContext();
-  console.log(userState);
   async function connectWallet() {
     try {
       const signer = await getProviderOrSigner(true);
@@ -25,7 +26,8 @@ export default function Header({ currentPage }) {
 
   useEffect(() => {
     handleConnectWalletClick();
-  });
+  }, []);
+
   return (
     <header className={styles.header}>
       <div className={styles.navigation}>
@@ -36,11 +38,13 @@ export default function Header({ currentPage }) {
           <a>Mint</a>
         </Link>
       </div>
-      <button onClick={(e) => handleConnectWalletClick(e)}>
-        {userState.userWallet
-          ? readifyAddress(userState.userWallet)
-          : "Connect Wallet"}
-      </button>
+      <div>
+        <button onClick={(e) => handleConnectWalletClick(e)}>
+          {userState.userWallet
+            ? readifyAddress(userState.userWallet)
+            : "Connect Wallet"}
+        </button>
+      </div>
     </header>
   );
 }
